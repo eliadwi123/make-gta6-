@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Port Marisol — a tiny open-world crime caper</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1020; font-family: "Segoe UI", system-ui, sans-serif; }
+  #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .hidden { display: none !important; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #fff; }
+  #vitals { position: absolute; top: 14px; left: 16px; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+  #healthbar { width: 210px; height: 14px; border: 2px solid rgba(255,255,255,.85); border-radius: 7px; background: rgba(0,0,0,.45); overflow: hidden; }
+  #healthfill { height: 100%; width: 100%; background: linear-gradient(90deg, #e33, #f80); transition: width .15s; }
+  #money { margin-top: 6px; font-size: 22px; font-weight: 700; color: #7dff8a; letter-spacing: .5px; }
+  #wanted { position: absolute; top: 10px; right: 18px; font-size: 30px; letter-spacing: 3px; color: #ffd23e; text-shadow: 0 0 8px rgba(0,0,0,.9); }
+  #wanted .off { color: rgba(255,255,255,.22); }
+  #objective { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); max-width: 560px; text-align: center;
+    background: rgba(5,10,25,.62); border: 1px solid rgba(255,210,62,.55); border-radius: 10px; padding: 8px 18px; }
+  #objective .obj-title { color: #ffd23e; font-weight: 700; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; }
+  #objective .obj-text { font-size: 15px; margin-top: 2px; }
+  #minimap { position: absolute; left: 16px; bottom: 16px; width: 184px; height: 184px; border: 2px solid rgba(255,255,255,.75);
+    border-radius: 50%; background: rgba(6,14,28,.8); }
+  #speedo { position: absolute; right: 22px; bottom: 18px; text-align: right; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+  #speedo .speed { font-size: 34px; font-weight: 800; }
+  #speedo .unit { font-size: 13px; opacity: .8; }
+  #prompt { position: absolute; left: 50%; bottom: 132px; transform: translateX(-50%); background: rgba(5,10,25,.7);
+    padding: 7px 16px; border-radius: 16px; font-size: 15px; border: 1px solid rgba(255,255,255,.35); }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%;
+    background: rgba(255,255,255,.9); box-shadow: 0 0 4px #000; }
+  #bustedmeter { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); width: 240px; text-align: center; }
+  #bustedmeter .label { color: #ff5b4d; font-weight: 800; letter-spacing: 2px; text-shadow: 0 1px 3px #000; }
+  #bustedbar { height: 10px; border: 2px solid #ff5b4d; border-radius: 6px; background: rgba(0,0,0,.5); overflow: hidden; }
+  #bustedfill { height: 100%; width: 0%; background: #ff5b4d; }
+
+  /* ---------- Dialogue ---------- */
+  #dialogue { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); width: min(680px, 92vw);
+    background: rgba(4,8,20,.86); border: 1px solid rgba(255,255,255,.28); border-left: 5px solid #ffd23e; border-radius: 10px;
+    padding: 12px 18px 10px; pointer-events: none; }
+  #dialogue .speaker { color: #ffd23e; font-weight: 800; font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; }
+  #dialogue .line { font-size: 18px; margin-top: 3px; line-height: 1.35; }
+  #dialogue .next { text-align: right; font-size: 12px; opacity: .65; margin-top: 4px; }
+
+  /* ---------- Full-screen overlays ---------- */
+  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; color: #fff; background: radial-gradient(ellipse at 50% 65%, rgba(10,16,38,.25), rgba(4,6,16,.88) 75%); z-index: 5; }
+  .overlay h1 { font-size: 74px; margin: 0; letter-spacing: 4px; font-weight: 900; color: #ffd23e;
+    text-shadow: 0 4px 0 #c21807, 0 8px 28px rgba(0,0,0,.8); }
+  .overlay h2 { font-size: 44px; margin: 0; letter-spacing: 3px; font-weight: 900; text-shadow: 0 3px 14px rgba(0,0,0,.8); }
+  .overlay p.tag { font-size: 19px; margin: 10px 0 26px; opacity: .92; }
+  .overlay .btns { display: flex; gap: 14px; }
+  .overlay button { pointer-events: auto; cursor: pointer; font-size: 19px; font-weight: 700; padding: 12px 30px; border-radius: 10px;
+    border: 2px solid #ffd23e; background: rgba(20,16,4,.75); color: #ffd23e; }
+  .overlay button:hover { background: #ffd23e; color: #191200; }
+  .overlay button:disabled { opacity: .35; cursor: default; }
+  .overlay button:disabled:hover { background: rgba(20,16,4,.75); color: #ffd23e; }
+  .overlay .controls { margin-top: 30px; font-size: 14.5px; line-height: 1.75; opacity: .85; }
+  .overlay .controls b { color: #ffd23e; }
+  #endscreen h2.busted { color: #ff5b4d; }
+  #endscreen h2.wasted { color: #ff5b4d; }
+  #endscreen h2.win { color: #7dff8a; }
+  #toast { position: fixed; top: 84px; left: 50%; transform: translateX(-50%); z-index: 4; color: #7dff8a; font-size: 21px;
+    font-weight: 700; text-shadow: 0 2px 6px #000; pointer-events: none; opacity: 0; transition: opacity .3s; }
+</style>
+</head>
+<body>
+<canvas id="scene" aria-label="Port Marisol 3D game view"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="vitals">
+    <div id="healthbar"><div id="healthfill"></div></div>
+    <div id="money">$0</div>
+  </div>
+  <div id="wanted"></div>
+  <div id="objective" class="hidden">
+    <div class="obj-title"></div>
+    <div class="obj-text"></div>
+  </div>
+  <canvas id="minimap" width="184" height="184"></canvas>
+  <div id="speedo" class="hidden"><span class="speed">0</span> <span class="unit">km/h</span></div>
+  <div id="prompt" class="hidden"></div>
+  <div id="crosshair" class="hidden"></div>
+  <div id="bustedmeter" class="hidden">
+    <div class="label">BUSTED</div>
+    <div id="bustedbar"><div id="bustedfill"></div></div>
+  </div>
+  <div id="dialogue" class="hidden">
+    <div class="speaker"></div>
+    <div class="line"></div>
+    <div class="next">E ▸</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="startscreen" class="overlay">
+  <h1>PORT MARISOL</h1>
+  <p class="tag">Sun, sea and stolen cars. Rio &amp; Maya have one weekend to get rich — or get busted.</p>
+  <div class="btns">
+    <button id="btn-new">New Game</button>
+    <button id="btn-continue">Continue</button>
+  </div>
+  <div class="controls">
+    <b>W A S D</b> move / drive &nbsp;·&nbsp; <b>Mouse drag</b> camera &nbsp;·&nbsp; <b>E</b> enter car / talk / advance<br>
+    <b>F</b> punch &nbsp;·&nbsp; <b>Click</b> shoot &nbsp;·&nbsp; <b>Shift</b> sprint &nbsp;·&nbsp; <b>Space</b> handbrake
+  </div>
+</div>
+
+<div id="endscreen" class="overlay hidden">
+  <h2 id="end-title">BUSTED</h2>
+  <p class="tag" id="end-text"></p>
+  <div class="btns">
+    <button id="btn-restart">Back to the streets</button>
+  </div>
+</div>
+
+<script src="./vendor/three.min.js"></script>
+<script src="./src/rng.js"></script>
+<script src="./src/audio.js"></script>
+<script src="./src/city.js"></script>
+<script src="./src/vehicles.js"></script>
+<script src="./src/people.js"></script>
+<script src="./src/police.js"></script>
+<script src="./src/missions.js"></script>
+<script src="./src/hud.js"></script>
+<script src="./src/game.js"></script>
+</body>
+</html>
